@@ -6,6 +6,7 @@ export const config = {
     },
   },
   routes: {
+    chatCompletions: '/v1/chat/completions',
   },
   models: {
     text: {
