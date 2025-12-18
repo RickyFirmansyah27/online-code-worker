@@ -1,0 +1,11 @@
+name = "online-code-worker"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[ai]
+binding = "AI"
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
