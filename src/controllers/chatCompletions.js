@@ -1,12 +1,9 @@
 import { config } from '../config/global-config.js';
 import { Logger } from '../helper/logger.js';
-
-const API_URL = config.apis.openrouter.url;
-const REFERER = "https://online-code-preview.vercel.app";
-const TITLE = "Online Code Preview";
+import { ChatCompletionService, ChatCompletionError } from '../service/chatCompletionService.js';
 
 export async function handleChatCompletions(c) {
-  Logger.info('Received chat completion request, forwarding to OpenRouter');
+  Logger.info('Received chat completion request');
 
   const body = await c.req.json();
   const env = c.env;
@@ -17,17 +14,22 @@ export async function handleChatCompletions(c) {
     return c.json({ error: 'OPENROUTER_API_KEY not set' }, 500);
   }
 
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': REFERER,
-      'X-Title': TITLE,
-    },
-    body: JSON.stringify(body),
-  });
+  try {
+    const service = new ChatCompletionService(apiKey);
 
-  // Return the response from OpenRouter directly
-  return response;
+    // Use raw response for streaming support
+    const response = await service.createCompletionRaw(body);
+    return response;
+  } catch (error) {
+    if (error instanceof ChatCompletionError) {
+      Logger.error(`Chat completion error: ${error.message}`);
+      return c.json({
+        error: error.message,
+        details: error.details
+      }, error.statusCode);
+    }
+
+    Logger.error(`Unexpected error: ${error.message}`);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
 }
