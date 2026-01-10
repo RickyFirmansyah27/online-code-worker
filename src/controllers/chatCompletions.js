@@ -1,6 +1,7 @@
 import { config } from '../config/global-config.js';
 import { Logger } from '../helper/logger.js';
 import { ChatCompletionService, ChatCompletionError } from '../service/chatCompletionService.js';
+import { formatChatResponse } from '../helper/formatter.js';
 
 /**
  * Check if the request contains image content
@@ -41,8 +42,16 @@ export async function handleChatCompletions(c) {
 
     try {
       const service = new ChatCompletionService(groqApiKey, 'groq');
-      const response = await service.createCompletionRaw(body);
-      return response;
+      const response = await service.createCompletion(body);
+
+      // Extract content from Groq response
+      const generatedText = response.choices?.[0]?.message?.content || '';
+      const modelDisplayName = config.models.groq?.displayName || response.model;
+      const usage = response.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+
+      // Format response using formatChatResponse
+      const formattedResponse = formatChatResponse(generatedText, modelDisplayName, usage);
+      return c.json(formattedResponse);
     } catch (error) {
       if (error instanceof ChatCompletionError) {
         Logger.error(`Groq chat completion error: ${error.message}`);
