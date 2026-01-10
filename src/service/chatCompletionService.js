@@ -1,41 +1,60 @@
 import { config } from '../config/global-config.js';
 import { Logger } from '../helper/logger.js';
 
-const API_URL = config.apis.openrouter.url;
 const REFERER = "https://online-code-preview.vercel.app";
 const TITLE = "Online Code Preview";
 
 /**
  * Chat Completion Service
- * Handles request/response for chat completions via OpenRouter API
+ * Handles request/response for chat completions via OpenRouter or Groq API
  */
 export class ChatCompletionService {
-    constructor(apiKey) {
+    /**
+     * @param {string} apiKey - The API key for the selected provider
+     * @param {string} provider - The provider to use ('openrouter' or 'groq')
+     */
+    constructor(apiKey, provider = 'openrouter') {
         this.apiKey = apiKey;
+        this.provider = provider;
+        this.apiUrl = config.apis[provider]?.url || config.apis.openrouter.url;
     }
 
     /**
-     * Send chat completion request to OpenRouter
+     * Get headers based on the provider
+     * @returns {Object} - Headers for the API request
+     */
+    getHeaders() {
+        const headers = {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+        };
+
+        // OpenRouter requires additional headers
+        if (this.provider === 'openrouter') {
+            headers['HTTP-Referer'] = REFERER;
+            headers['X-Title'] = TITLE;
+        }
+
+        return headers;
+    }
+
+    /**
+     * Send chat completion request
      * @param {Object} request - The chat completion request body
      * @returns {Promise<Object>} - The chat completion response
      */
     async createCompletion(request) {
-        Logger.info('Sending chat completion request to OpenRouter');
+        Logger.info(`Sending chat completion request to ${this.provider}`);
 
-        const response = await fetch(API_URL, {
+        const response = await fetch(this.apiUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.apiKey}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': REFERER,
-                'X-Title': TITLE,
-            },
+            headers: this.getHeaders(),
             body: JSON.stringify(request),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            Logger.error(`OpenRouter API error: ${response.status}`, errorData);
+            Logger.error(`${this.provider} API error: ${response.status}`, errorData);
             throw new ChatCompletionError(
                 errorData.error?.message || 'Failed to get chat completion',
                 response.status,
@@ -54,16 +73,11 @@ export class ChatCompletionService {
      * @returns {Promise<Response>} - The raw fetch response
      */
     async createCompletionRaw(request) {
-        Logger.info('Sending raw chat completion request to OpenRouter');
+        Logger.info(`Sending raw chat completion request to ${this.provider}`);
 
-        const response = await fetch(API_URL, {
+        const response = await fetch(this.apiUrl, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.apiKey}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': REFERER,
-                'X-Title': TITLE,
-            },
+            headers: this.getHeaders(),
             body: JSON.stringify(request),
         });
 
